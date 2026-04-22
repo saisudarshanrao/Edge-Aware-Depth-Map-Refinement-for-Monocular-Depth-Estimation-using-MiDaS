@@ -1,6 +1,6 @@
 # Edge-Aware Depth Map Refinement for Monocular Depth Estimation using MiDaS
 
-**Author:** Sai Gandham
+**Author:** Sai sudarshan rao, Sai chandra raju , Bhagya shree
 
 ## Overview
 
