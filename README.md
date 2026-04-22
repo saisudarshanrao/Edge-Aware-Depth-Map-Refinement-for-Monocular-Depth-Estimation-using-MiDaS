@@ -1,304 +1,166 @@
-<<<<<<< HEAD
-## Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-shot Cross-dataset Transfer
+# Edge-Aware Depth Map Refinement for Monocular Depth Estimation using MiDaS
 
-This repository contains code to compute depth from a single image. It accompanies our [paper](https://arxiv.org/abs/1907.01341v3):
+**Author:** Sai Gandham
 
->Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-shot Cross-dataset Transfer  
-René Ranftl, Katrin Lasinger, David Hafner, Konrad Schindler, Vladlen Koltun
+## Overview
 
+This project improves the visual quality of monocular depth estimation outputs produced by MiDaS. The baseline MiDaS model generates strong depth maps, but the results may still contain blurred boundaries, noisy flat regions, and weak foreground/background transitions. To address this, the project adds a lightweight edge-aware refinement stage using guided filtering and image-guided post-processing.
 
-and our [preprint](https://arxiv.org/abs/2103.13413):
+The idea is simple: first generate a depth map using MiDaS, then refine it using the original RGB image so that object boundaries become sharper and the final depth output looks cleaner and more structurally consistent.
 
-> Vision Transformers for Dense Prediction  
-> René Ranftl, Alexey Bochkovskiy, Vladlen Koltun
+## How This Project Was Derived
 
-For the latest release MiDaS 3.1, a [technical report](https://arxiv.org/pdf/2307.14460.pdf) and [video](https://www.youtube.com/watch?v=UjaeNNFf9sE&t=3s) are available.
+This project was developed as a coursework project in deep learning and computer vision. It was derived from the idea of improving a pretrained monocular depth estimation model without retraining it. Instead of modifying the neural network architecture, the project focuses on a practical post-processing enhancement that can be applied to MiDaS outputs.
 
-MiDaS was trained on up to 12 datasets (ReDWeb, DIML, Movies, MegaDepth, WSVD, TartanAir, HRWSI, ApolloScape, BlendedMVS, IRS, KITTI, NYU Depth V2) with
-multi-objective optimization. 
-The original model that was trained on 5 datasets  (`MIX 5` in the paper) can be found [here](https://github.com/isl-org/MiDaS/releases/tag/v2).
-The figure below shows an overview of the different MiDaS models; the bubble size scales with number of parameters.
+The final pipeline combines:
 
-![](figures/Improvement_vs_FPS.png)
+* MiDaS as the baseline depth estimator
+* edge-aware guided filtering as the refinement step
+* side-by-side comparison images for analysis
 
-### Setup 
+This makes the project easy to run, easy to explain, and strong enough for a course submission.
 
-1) Pick one or more models and download the corresponding weights to the `weights` folder:
+## Features
 
-MiDaS 3.1
-- For highest quality: [dpt_beit_large_512](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt)
-- For moderately less quality, but better speed-performance trade-off: [dpt_swin2_large_384](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_large_384.pt)
-- For embedded devices: [dpt_swin2_tiny_256](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_tiny_256.pt), [dpt_levit_224](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_levit_224.pt)
-- For inference on Intel CPUs, OpenVINO may be used for the small legacy model: openvino_midas_v21_small [.xml](https://github.com/isl-org/MiDaS/releases/download/v3_1/openvino_midas_v21_small_256.xml), [.bin](https://github.com/isl-org/MiDaS/releases/download/v3_1/openvino_midas_v21_small_256.bin)
+* Uses MiDaS for monocular depth estimation
+* Refines depth maps using edge-aware filtering
+* Preserves sharp object boundaries
+* Reduces noise in smooth regions
+* Generates comparison panels for qualitative analysis
+* Works on both indoor and outdoor images
 
-MiDaS 3.0: Legacy transformer models [dpt_large_384](https://github.com/isl-org/MiDaS/releases/download/v3/dpt_large_384.pt) and [dpt_hybrid_384](https://github.com/isl-org/MiDaS/releases/download/v3/dpt_hybrid_384.pt)
+## Project Structure
 
-MiDaS 2.1: Legacy convolutional models [midas_v21_384](https://github.com/isl-org/MiDaS/releases/download/v2_1/midas_v21_384.pt) and [midas_v21_small_256](https://github.com/isl-org/MiDaS/releases/download/v2_1/midas_v21_small_256.pt) 
-
-1) Set up dependencies: 
-
-    ```shell
-    conda env create -f environment.yaml
-    conda activate midas-py310
-    ```
-
-#### optional
-
-For the Next-ViT model, execute
-
-```shell
-git submodule add https://github.com/isl-org/Next-ViT midas/external/next_vit
+```text
+MiDaS/
+├── input_images/        # Input RGB images
+├── output/              # Raw MiDaS depth maps
+├── refined_output/      # Refined depth maps and comparisons
+├── weights/             # Pretrained model weights
+├── run.py               # MiDaS inference script
+├── refine_depth.py      # Edge-aware refinement script
+└── README.md            # Project documentation
 ```
 
-For the OpenVINO model, install
+## Requirements
 
-```shell
-pip install openvino
-```
-    
-### Usage
+* Python 3.9 or higher
+* OpenCV
+* OpenCV Contrib
+* NumPy
+* PyTorch
+* timm
+* imutils
 
-1) Place one or more input images in the folder `input`.
+## Installation
 
-2) Run the model with
+Install the required dependencies using:
 
-   ```shell
-   python run.py --model_type <model_type> --input_path input --output_path output
-   ```
-   where ```<model_type>``` is chosen from [dpt_beit_large_512](#model_type), [dpt_beit_large_384](#model_type),
-   [dpt_beit_base_384](#model_type), [dpt_swin2_large_384](#model_type), [dpt_swin2_base_384](#model_type),
-   [dpt_swin2_tiny_256](#model_type), [dpt_swin_large_384](#model_type), [dpt_next_vit_large_384](#model_type),
-   [dpt_levit_224](#model_type), [dpt_large_384](#model_type), [dpt_hybrid_384](#model_type),
-   [midas_v21_384](#model_type), [midas_v21_small_256](#model_type), [openvino_midas_v21_small_256](#model_type).
- 
-3) The resulting depth maps are written to the `output` folder.
-
-#### optional
-
-1) By default, the inference resizes the height of input images to the size of a model to fit into the encoder. This
-   size is given by the numbers in the model names of the [accuracy table](#accuracy). Some models do not only support a single
-   inference height but a range of different heights. Feel free to explore different heights by appending the extra 
-   command line argument `--height`. Unsupported height values will throw an error. Note that using this argument may
-   decrease the model accuracy.
-2) By default, the inference keeps the aspect ratio of input images when feeding them into the encoder if this is
-   supported by a model (all models except for Swin, Swin2, LeViT). In order to resize to a square resolution,
-   disregarding the aspect ratio while preserving the height, use the command line argument `--square`. 
-
-#### via Camera
-
-   If you want the input images to be grabbed from the camera and shown in a window, leave the input and output paths
-   away and choose a model type as shown above:
-
-   ```shell
-   python run.py --model_type <model_type> --side
-   ```
-
-   The argument `--side` is optional and causes both the input RGB image and the output depth map to be shown 
-   side-by-side for comparison.
-
-#### via Docker
-
-1) Make sure you have installed Docker and the
-   [NVIDIA Docker runtime](https://github.com/NVIDIA/nvidia-docker/wiki/Installation-\(Native-GPU-Support\)).
-
-2) Build the Docker image:
-
-    ```shell
-    docker build -t midas .
-    ```
-
-3) Run inference:
-
-    ```shell
-    docker run --rm --gpus all -v $PWD/input:/opt/MiDaS/input -v $PWD/output:/opt/MiDaS/output -v $PWD/weights:/opt/MiDaS/weights midas
-    ```
-
-   This command passes through all of your NVIDIA GPUs to the container, mounts the
-   `input` and `output` directories and then runs the inference.
-
-#### via PyTorch Hub
-
-The pretrained model is also available on [PyTorch Hub](https://pytorch.org/hub/intelisl_midas_v2/)
-
-#### via TensorFlow or ONNX
-
-See [README](https://github.com/isl-org/MiDaS/tree/master/tf) in the `tf` subdirectory.
-
-Currently only supports MiDaS v2.1. 
-
-
-#### via Mobile (iOS / Android)
-
-See [README](https://github.com/isl-org/MiDaS/tree/master/mobile) in the `mobile` subdirectory.
-
-#### via ROS1 (Robot Operating System)
-
-See [README](https://github.com/isl-org/MiDaS/tree/master/ros) in the `ros` subdirectory.
-
-Currently only supports MiDaS v2.1. DPT-based models to be added. 
-
-
-### Accuracy
-
-We provide a **zero-shot error** $\epsilon_d$ which is evaluated for 6 different datasets
-(see [paper](https://arxiv.org/abs/1907.01341v3)). **Lower error values are better**. 
-$\color{green}{\textsf{Overall model quality is represented by the improvement}}$ ([Imp.](#improvement)) with respect to
-MiDaS 3.0 DPT<sub>L-384</sub>. The models are grouped by the height used for inference, whereas the square training resolution is given by 
-the numbers in the model names. The table also shows the **number of parameters** (in millions) and the 
-**frames per second** for inference at the training resolution (for GPU RTX 3090):
-
-| MiDaS Model                                                                                                           | DIW </br><sup>WHDR</sup> | Eth3d </br><sup>AbsRel</sup> | Sintel </br><sup>AbsRel</sup> |   TUM </br><sup>δ1</sup> | KITTI </br><sup>δ1</sup> | NYUv2 </br><sup>δ1</sup> | $\color{green}{\textsf{Imp.}}$ </br><sup>%</sup> | Par.</br><sup>M</sup> | FPS</br><sup>&nbsp;</sup> |
-|-----------------------------------------------------------------------------------------------------------------------|-------------------------:|-----------------------------:|------------------------------:|-------------------------:|-------------------------:|-------------------------:|-------------------------------------------------:|----------------------:|--------------------------:|
-| **Inference height 512**                                                                                              |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| [v3.1 BEiT<sub>L-512</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt)                                                                                     |                   0.1137 |                       0.0659 |                        0.2366 |                 **6.13** |                   11.56* |                **1.86*** |                     $\color{green}{\textsf{19}}$ |               **345** |                   **5.7** |
-| [v3.1 BEiT<sub>L-512</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt)$\tiny{\square}$                                                                     |               **0.1121** |                   **0.0614** |                    **0.2090** |                     6.46 |                **5.00*** |                    1.90* |                     $\color{green}{\textsf{34}}$ |               **345** |                   **5.7** |
-|                                                                                                                       |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| **Inference height 384**                                                                                              |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| [v3.1 BEiT<sub>L-512</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_512.pt)                                                                                     |                   0.1245 |                       0.0681 |                    **0.2176** |                 **6.13** |                    6.28* |                **2.16*** |                     $\color{green}{\textsf{28}}$ |                   345 |                        12 |
-| [v3.1 Swin2<sub>L-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_large_384.pt)$\tiny{\square}$                                                                    |                   0.1106 |                       0.0732 |                        0.2442 |                     8.87 |                **5.84*** |                    2.92* |                     $\color{green}{\textsf{22}}$ |                   213 |                        41 |
-| [v3.1 Swin2<sub>B-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_base_384.pt)$\tiny{\square}$                                                                    |                   0.1095 |                       0.0790 |                        0.2404 |                     8.93 |                    5.97* |                    3.28* |                     $\color{green}{\textsf{22}}$ |                   102 |                        39 |
-| [v3.1 Swin<sub>L-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin_large_384.pt)$\tiny{\square}$                                                                     |                   0.1126 |                       0.0853 |                        0.2428 |                     8.74 |                    6.60* |                    3.34* |                     $\color{green}{\textsf{17}}$ |                   213 |                        49 |
-| [v3.1 BEiT<sub>L-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_large_384.pt)                                                                                     |                   0.1239 |                   **0.0667** |                        0.2545 |                     7.17 |                    9.84* |                    2.21* |                     $\color{green}{\textsf{17}}$ |                   344 |                        13 |
-| [v3.1 Next-ViT<sub>L-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_next_vit_large_384.pt)                                                                                 |               **0.1031** |                       0.0954 |                        0.2295 |                     9.21 |                    6.89* |                    3.47* |                     $\color{green}{\textsf{16}}$ |                **72** |                        30 |
-| [v3.1 BEiT<sub>B-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_beit_base_384.pt)                                                                                     |                   0.1159 |                       0.0967 |                        0.2901 |                     9.88 |                   26.60* |                    3.91* |                    $\color{green}{\textsf{-31}}$ |                   112 |                        31 |
-| [v3.0 DPT<sub>L-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3/dpt_large_384.pt)        |                   0.1082 |                       0.0888 |                        0.2697 |                     9.97 |                     8.46 |                     8.32 |                      $\color{green}{\textsf{0}}$ |                   344 |                    **61** |
-| [v3.0 DPT<sub>H-384</sub>](https://github.com/isl-org/MiDaS/releases/download/v3/dpt_hybrid_384.pt)       |                   0.1106 |                       0.0934 |                        0.2741 |                    10.89 |                    11.56 |                     8.69 |                    $\color{green}{\textsf{-10}}$ |                   123 |                        50 |
-| [v2.1 Large<sub>384</sub>](https://github.com/isl-org/MiDaS/releases/download/v2_1/midas_v21_384.pt)       |                   0.1295 |                       0.1155 |                        0.3285 |                    12.51 |                    16.08 |                     8.71 |                    $\color{green}{\textsf{-32}}$ |                   105 |                        47 |
-|                                                                                                                       |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| **Inference height 256**                                                                                              |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| [v3.1 Swin2<sub>T-256</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_swin2_tiny_256.pt)$\tiny{\square}$                                                                    |               **0.1211** |                   **0.1106** |                    **0.2868** |                **13.43** |               **10.13*** |                **5.55*** |                    $\color{green}{\textsf{-11}}$ |                    42 |                        64 |
-| [v2.1 Small<sub>256</sub>](https://github.com/isl-org/MiDaS/releases/download/v2_1/midas_v21_small_256.pt) |                   0.1344 |                       0.1344 |                        0.3370 |                    14.53 |                    29.27 |                    13.43 |                    $\color{green}{\textsf{-76}}$ |                **21** |                    **90** |
-|                                                                                                                       |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| **Inference height 224**                                                                                              |                          |                              |                               |                          |                          |                          |                                                  |                       |                           |
-| [v3.1 LeViT<sub>224</sub>](https://github.com/isl-org/MiDaS/releases/download/v3_1/dpt_levit_224.pt)$\tiny{\square}$                                                                      |               **0.1314** |                   **0.1206** |                    **0.3148** |                **18.21** |               **15.27*** |                **8.64*** |                    $\color{green}{\textsf{-40}}$ |                **51** |                    **73** |
-
-&ast; No zero-shot error, because models are also trained on KITTI and NYU Depth V2\
-$\square$ Validation performed at **square resolution**, either because the transformer encoder backbone of a model 
-does not support non-square resolutions (Swin, Swin2, LeViT) or for comparison with these models. All other 
-validations keep the aspect ratio. A difference in resolution limits the comparability of the zero-shot error and the
-improvement, because these quantities are averages over the pixels of an image and do not take into account the 
-advantage of more details due to a higher resolution.\
-Best values per column and same validation height in bold
-
-#### Improvement
-
-The improvement in the above table is defined as the relative zero-shot error with respect to MiDaS v3.0 
-DPT<sub>L-384</sub> and averaging over the datasets. So, if $\epsilon_d$ is the zero-shot error for dataset $d$, then
-the $\color{green}{\textsf{improvement}}$ is given by $100(1-(1/6)\sum_d\epsilon_d/\epsilon_{d,\rm{DPT_{L-384}}})$%.
-
-Note that the improvements of 10% for MiDaS v2.0 &rarr; v2.1 and 21% for MiDaS v2.1 &rarr; v3.0 are not visible from the
-improvement column (Imp.) in the table but would require an evaluation with respect to MiDaS v2.1 Large<sub>384</sub>
-and v2.0 Large<sub>384</sub> respectively instead of v3.0 DPT<sub>L-384</sub>.
-
-### Depth map comparison
-
-Zoom in for better visibility
-![](figures/Comparison.png)
-
-### Speed on Camera Feed	
-
-Test configuration	
-- Windows 10	
-- 11th Gen Intel Core i7-1185G7 3.00GHz	
-- 16GB RAM	
-- Camera resolution 640x480	
-- openvino_midas_v21_small_256	
-
-Speed: 22 FPS
-
-### Applications
-
-MiDaS is used in the following other projects from Intel Labs:
-
-- [ZoeDepth](https://arxiv.org/pdf/2302.12288.pdf) (code available [here](https://github.com/isl-org/ZoeDepth)): MiDaS computes the relative depth map given an image. For metric depth estimation, ZoeDepth can be used, which combines MiDaS with a metric depth binning module appended to the decoder.
-- [LDM3D](https://arxiv.org/pdf/2305.10853.pdf) (Hugging Face model available [here](https://huggingface.co/Intel/ldm3d-4c)): LDM3D is an extension of vanilla stable diffusion designed to generate joint image and depth data from a text prompt. The depth maps used for supervision when training LDM3D have been computed using MiDaS.
-
-### Changelog
-
-* [Dec 2022] Released [MiDaS v3.1](https://arxiv.org/pdf/2307.14460.pdf):
-    - New models based on 5 different types of transformers ([BEiT](https://arxiv.org/pdf/2106.08254.pdf), [Swin2](https://arxiv.org/pdf/2111.09883.pdf), [Swin](https://arxiv.org/pdf/2103.14030.pdf), [Next-ViT](https://arxiv.org/pdf/2207.05501.pdf), [LeViT](https://arxiv.org/pdf/2104.01136.pdf))
-    - Training datasets extended from 10 to 12, including also KITTI and NYU Depth V2 using [BTS](https://github.com/cleinc/bts) split
-    - Best model, BEiT<sub>Large 512</sub>, with resolution 512x512, is on average about [28% more accurate](#Accuracy) than MiDaS v3.0
-    - Integrated live depth estimation from camera feed
-* [Sep 2021] Integrated to [Huggingface Spaces](https://huggingface.co/spaces) with [Gradio](https://github.com/gradio-app/gradio). See [Gradio Web Demo](https://huggingface.co/spaces/akhaliq/DPT-Large).
-* [Apr 2021] Released MiDaS v3.0:
-    - New models based on [Dense Prediction Transformers](https://arxiv.org/abs/2103.13413) are on average [21% more accurate](#Accuracy) than MiDaS v2.1
-    - Additional models can be found [here](https://github.com/isl-org/DPT)
-* [Nov 2020] Released MiDaS v2.1:
-	- New model that was trained on 10 datasets and is on average about [10% more accurate](#Accuracy) than [MiDaS v2.0](https://github.com/isl-org/MiDaS/releases/tag/v2)
-	- New light-weight model that achieves [real-time performance](https://github.com/isl-org/MiDaS/tree/master/mobile) on mobile platforms.
-	- Sample applications for [iOS](https://github.com/isl-org/MiDaS/tree/master/mobile/ios) and [Android](https://github.com/isl-org/MiDaS/tree/master/mobile/android)
-	- [ROS package](https://github.com/isl-org/MiDaS/tree/master/ros) for easy deployment on robots
-* [Jul 2020] Added TensorFlow and ONNX code. Added [online demo](http://35.202.76.57/).
-* [Dec 2019] Released new version of MiDaS - the new model is significantly more accurate and robust
-* [Jul 2019] Initial release of MiDaS ([Link](https://github.com/isl-org/MiDaS/releases/tag/v1))
-
-### Citation
-
-Please cite our paper if you use this code or any of the models:
-```
-@ARTICLE {Ranftl2022,
-    author  = "Ren\'{e} Ranftl and Katrin Lasinger and David Hafner and Konrad Schindler and Vladlen Koltun",
-    title   = "Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-Shot Cross-Dataset Transfer",
-    journal = "IEEE Transactions on Pattern Analysis and Machine Intelligence",
-    year    = "2022",
-    volume  = "44",
-    number  = "3"
-}
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install torch torchvision timm imutils numpy opencv-python opencv-contrib-python
 ```
 
-If you use a DPT-based model, please also cite:
+If your system has issues with the default PyTorch installation, use the CPU wheel index:
 
-```
-@article{Ranftl2021,
-	author    = {Ren\'{e} Ranftl and Alexey Bochkovskiy and Vladlen Koltun},
-	title     = {Vision Transformers for Dense Prediction},
-	journal   = {ICCV},
-	year      = {2021},
-}
+```bash
+python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+python3 -m pip install timm imutils numpy opencv-python opencv-contrib-python
 ```
 
-Please cite the technical report for MiDaS 3.1 models:
+## Download Model Weights
 
-```
-@article{birkl2023midas,
-      title={MiDaS v3.1 -- A Model Zoo for Robust Monocular Relative Depth Estimation},
-      author={Reiner Birkl and Diana Wofk and Matthias M{\"u}ller},
-      journal={arXiv preprint arXiv:2307.14460},
-      year={2023}
-}
-```
+MiDaS requires pretrained weights before inference.
 
-For ZoeDepth, please use
+Example:
 
-```
-@article{bhat2023zoedepth,
-  title={Zoedepth: Zero-shot transfer by combining relative and metric depth},
-  author={Bhat, Shariq Farooq and Birkl, Reiner and Wofk, Diana and Wonka, Peter and M{\"u}ller, Matthias},
-  journal={arXiv preprint arXiv:2302.12288},
-  year={2023}
-}
+```bash
+mkdir -p weights
+cd weights
+curl -L -o dpt_large_384.pt https://github.com/isl-org/MiDaS/releases/download/v3/dpt_large_384.pt
+cd ..
 ```
 
-and for LDM3D
+If the download command does not work, download the weight file manually and place it inside the `weights/` folder.
 
+## How to Run the Baseline MiDaS Model
+
+Put your input images inside the `input_images/` folder.
+
+Then run:
+
+```bash
+python3 run.py --model_type dpt_large_384 --input_path input_images --output_path output --grayscale
 ```
-@article{stan2023ldm3d,
-  title={LDM3D: Latent Diffusion Model for 3D},
-  author={Stan, Gabriela Ben Melech and Wofk, Diana and Fox, Scottie and Redden, Alex and Saxton, Will and Yu, Jean and Aflalo, Estelle and Tseng, Shao-Yen and Nonato, Fabio and Muller, Matthias and others},
-  journal={arXiv preprint arXiv:2305.10853},
-  year={2023}
-}
+
+This will generate raw depth maps in the `output/` folder.
+
+## How to Run the Refinement Step
+
+After the baseline depth maps are generated, run:
+
+```bash
+python3 refine_depth.py --input_dir input_images --depth_dir output --output_dir refined_output
 ```
 
-### Acknowledgements
+This will create:
 
-Our work builds on and uses code from [timm](https://github.com/rwightman/pytorch-image-models) and [Next-ViT](https://github.com/bytedance/Next-ViT). 
-We'd like to thank the authors for making these libraries available.
+* `refined_output/raw/` for raw depth maps
+* `refined_output/refined/` for refined depth maps
+* `refined_output/compare/` for side-by-side comparison panels
 
-### License 
+## Expected Output
 
-MIT License 
-=======
-# Edge-Aware-Depth-Map-Refinement-for-Monocular-Depth-Estimation-using-MiDaS
->>>>>>> 499b079cf2701dbd5348794c8a8dd40d94d8d670
+For each image, the project produces:
+
+* the original RGB image
+* the raw MiDaS depth map
+* the refined depth map
+* a comparison image showing all three side by side
+
+## Method Summary
+
+1. Input RGB image is passed to MiDaS.
+2. MiDaS predicts a baseline depth map.
+3. The depth map is normalized.
+4. The original image is used as guidance for edge-aware refinement.
+5. The refined output is saved and compared with the raw output.
+
+## Why This Improvement Helps
+
+The guided refinement step improves the visual quality of depth maps by:
+
+* sharpening object boundaries
+* keeping structural edges more consistent
+* smoothing noisy flat areas
+* improving the overall visual appearance of the depth map
+
+## Limitations
+
+* This project does not retrain the model.
+* The method improves visual quality more than numerical accuracy.
+* Very fine texture details may still be smoothed slightly.
+
+## Use Cases
+
+This project can be useful for:
+
+* computer vision coursework
+* depth map visualization
+* AR/VR preprocessing
+* robotics perception demos
+* scene understanding experiments
+
+## Author
+
+**Sai Gandham**
+
+## License
+
+This project is created for academic and educational purposes.
+
+## Acknowledgements
+
+* MiDaS for the baseline depth estimation model
+* OpenCV for image processing utilities
+* Guided filtering ideas from edge-preserving image smoothing methods
