@@ -153,7 +153,11 @@ This project can be useful for:
 
 ## Author
 
-**Sai Gandham**
+**Sai sudarshan**
+
+**Sai chandra raju**
+
+**Bhagya shree**
 
 ## License
 
