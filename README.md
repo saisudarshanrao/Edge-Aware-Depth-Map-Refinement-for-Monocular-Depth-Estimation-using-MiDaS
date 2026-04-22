@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## Towards Robust Monocular Depth Estimation: Mixing Datasets for Zero-shot Cross-dataset Transfer
 
 This repository contains code to compute depth from a single image. It accompanies our [paper](https://arxiv.org/abs/1907.01341v3):
@@ -298,3 +299,6 @@ We'd like to thank the authors for making these libraries available.
 ### License 
 
 MIT License 
+=======
+# Edge-Aware-Depth-Map-Refinement-for-Monocular-Depth-Estimation-using-MiDaS
+>>>>>>> 499b079cf2701dbd5348794c8a8dd40d94d8d670
